@@ -2,10 +2,16 @@ import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 
+class Generator(nn.Module):
+    def __init__(self, input_nc=3, output_nc=256, num_filters=64):
+        super(Generator, self).__init__()
+
+    def forward(self, x):
+        x = self
 
 class ResnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, ngf=64, n_blocks=6, img_size=256, light=False):
-        assert(n_blocks >= 0)
+        assert (n_blocks >= 0)
         super(ResnetGenerator, self).__init__()
         self.input_nc = input_nc
         self.output_nc = output_nc
@@ -16,11 +22,11 @@ class ResnetGenerator(nn.Module):
 
         n_downsampling = 2
 
-        mult = 2**n_downsampling
+        mult = 2 ** n_downsampling
         UpBlock0 = [nn.ReflectionPad2d(1),
-                nn.Conv2d(int(ngf * mult / 2), ngf * mult, kernel_size=3, stride=1, padding=0, bias=True),
-                ILN(ngf * mult),
-                nn.ReLU(True)]
+                    nn.Conv2d(int(ngf * mult / 2), ngf * mult, kernel_size=3, stride=1, padding=0, bias=True),
+                    ILN(ngf * mult),
+                    nn.ReLU(True)]
 
         self.relu = nn.ReLU(True)
 
@@ -40,12 +46,12 @@ class ResnetGenerator(nn.Module):
 
         # Up-Sampling Bottleneck
         for i in range(n_blocks):
-            setattr(self, 'UpBlock1_' + str(i+1), ResnetAdaILNBlock(ngf * mult, use_bias=False))
+            setattr(self, 'UpBlock1_' + str(i + 1), ResnetAdaILNBlock(ngf * mult, use_bias=False))
 
         # Up-Sampling
         UpBlock2 = []
         for i in range(n_downsampling):
-            mult = 2**(n_downsampling - i)
+            mult = 2 ** (n_downsampling - i)
             # Experiments show that the performance of Up-sample and Sub-pixel is similar,
             #  although theoretically Sub-pixel has more parameters and less FLOPs.
             # UpBlock2 += [nn.Upsample(scale_factor=2, mode='nearest'),
@@ -53,11 +59,11 @@ class ResnetGenerator(nn.Module):
             #              nn.Conv2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=1, padding=0, bias=False),
             #              ILN(int(ngf * mult / 2)),
             #              nn.ReLU(True)]
-            UpBlock2 += [nn.ReflectionPad2d(1),   
+            UpBlock2 += [nn.ReflectionPad2d(1),
                          nn.Conv2d(ngf * mult, int(ngf * mult / 2), kernel_size=3, stride=1, padding=0, bias=False),
                          ILN(int(ngf * mult / 2)),
                          nn.ReLU(True),
-                         nn.Conv2d(int(ngf * mult / 2), int(ngf * mult / 2)*4, kernel_size=1, stride=1, bias=True),
+                         nn.Conv2d(int(ngf * mult / 2), int(ngf * mult / 2) * 4, kernel_size=1, stride=1, bias=True),
                          nn.PixelShuffle(2),
                          ILN(int(ngf * mult / 2)),
                          nn.ReLU(True)
@@ -83,7 +89,7 @@ class ResnetGenerator(nn.Module):
         gamma, beta = self.gamma(x_), self.beta(x_)
 
         for i in range(self.n_blocks):
-            x = getattr(self, 'UpBlock1_' + str(i+1))(x, gamma, beta)
+            x = getattr(self, 'UpBlock1_' + str(i + 1))(x, gamma, beta)
 
         out = self.UpBlock2(x)
 
@@ -142,20 +148,20 @@ class adaILN(nn.Module):
         self.using_moving_average = using_moving_average
         self.using_bn = using_bn
         self.num_features = num_features
-    
+
         if self.using_bn:
             self.rho = Parameter(torch.Tensor(1, num_features, 3))
-            self.rho[:,:,0].data.fill_(3)
-            self.rho[:,:,1].data.fill_(1)
-            self.rho[:,:,2].data.fill_(1)
-            self.register_buffer('running_mean', torch.zeros(1, num_features, 1,1))
-            self.register_buffer('running_var', torch.zeros(1, num_features, 1,1))
+            self.rho[:, :, 0].data.fill_(3)
+            self.rho[:, :, 1].data.fill_(1)
+            self.rho[:, :, 2].data.fill_(1)
+            self.register_buffer('running_mean', torch.zeros(1, num_features, 1, 1))
+            self.register_buffer('running_var', torch.zeros(1, num_features, 1, 1))
             self.running_mean.zero_()
             self.running_var.zero_()
         else:
             self.rho = Parameter(torch.Tensor(1, num_features, 2))
-            self.rho[:,:,0].data.fill_(3.2)
-            self.rho[:,:,1].data.fill_(1)
+            self.rho[:, :, 0].data.fill_(3.2)
+            self.rho[:, :, 1].data.fill_(1)
 
     def forward(self, input, gamma, beta):
         in_mean, in_var = torch.mean(input, dim=[2, 3], keepdim=True), torch.var(input, dim=[2, 3], keepdim=True)
@@ -164,11 +170,11 @@ class adaILN(nn.Module):
         out_ln = (input - ln_mean) / torch.sqrt(ln_var + self.eps)
         softmax = nn.Softmax(2)
         rho = softmax(self.rho)
-        
-        
+
         if self.using_bn:
             if self.training:
-                bn_mean, bn_var = torch.mean(input, dim=[0, 2, 3], keepdim=True), torch.var(input, dim=[0, 2, 3], keepdim=True)
+                bn_mean, bn_var = torch.mean(input, dim=[0, 2, 3], keepdim=True), torch.var(input, dim=[0, 2, 3],
+                                                                                            keepdim=True)
                 if self.using_moving_average:
                     self.running_mean.mul_(self.momentum)
                     self.running_mean.add_((1 - self.momentum) * bn_mean.data)
@@ -181,22 +187,22 @@ class adaILN(nn.Module):
                 bn_mean = torch.autograd.Variable(self.running_mean)
                 bn_var = torch.autograd.Variable(self.running_var)
             out_bn = (input - bn_mean) / torch.sqrt(bn_var + self.eps)
-            rho_0 = rho[:,:,0]
-            rho_1 = rho[:,:,1]
-            rho_2 = rho[:,:,2]
+            rho_0 = rho[:, :, 0]
+            rho_1 = rho[:, :, 1]
+            rho_2 = rho[:, :, 2]
 
-            rho_0 = rho_0.view(1, self.num_features, 1,1)
-            rho_1 = rho_1.view(1, self.num_features, 1,1)
-            rho_2 = rho_2.view(1, self.num_features, 1,1)
+            rho_0 = rho_0.view(1, self.num_features, 1, 1)
+            rho_1 = rho_1.view(1, self.num_features, 1, 1)
+            rho_2 = rho_2.view(1, self.num_features, 1, 1)
             rho_0 = rho_0.expand(input.shape[0], -1, -1, -1)
             rho_1 = rho_1.expand(input.shape[0], -1, -1, -1)
             rho_2 = rho_2.expand(input.shape[0], -1, -1, -1)
             out = rho_0 * out_in + rho_1 * out_ln + rho_2 * out_bn
         else:
-            rho_0 = rho[:,:,0]
-            rho_1 = rho[:,:,1]
-            rho_0 = rho_0.view(1, self.num_features, 1,1)
-            rho_1 = rho_1.view(1, self.num_features, 1,1)
+            rho_0 = rho[:, :, 0]
+            rho_1 = rho[:, :, 1]
+            rho_0 = rho_0.view(1, self.num_features, 1, 1)
+            rho_1 = rho_1.view(1, self.num_features, 1, 1)
             rho_0 = rho_0.expand(input.shape[0], -1, -1, -1)
             rho_1 = rho_1.expand(input.shape[0], -1, -1, -1)
             out = rho_0 * out_in + rho_1 * out_ln
@@ -213,20 +219,20 @@ class ILN(nn.Module):
         self.using_moving_average = using_moving_average
         self.using_bn = using_bn
         self.num_features = num_features
-    
+
         if self.using_bn:
             self.rho = Parameter(torch.Tensor(1, num_features, 3))
-            self.rho[:,:,0].data.fill_(1)
-            self.rho[:,:,1].data.fill_(3)
-            self.rho[:,:,2].data.fill_(3)
-            self.register_buffer('running_mean', torch.zeros(1, num_features, 1,1))
-            self.register_buffer('running_var', torch.zeros(1, num_features, 1,1))
+            self.rho[:, :, 0].data.fill_(1)
+            self.rho[:, :, 1].data.fill_(3)
+            self.rho[:, :, 2].data.fill_(3)
+            self.register_buffer('running_mean', torch.zeros(1, num_features, 1, 1))
+            self.register_buffer('running_var', torch.zeros(1, num_features, 1, 1))
             self.running_mean.zero_()
             self.running_var.zero_()
         else:
             self.rho = Parameter(torch.Tensor(1, num_features, 2))
-            self.rho[:,:,0].data.fill_(1)
-            self.rho[:,:,1].data.fill_(3.2)
+            self.rho[:, :, 0].data.fill_(1)
+            self.rho[:, :, 1].data.fill_(3.2)
 
         self.gamma = Parameter(torch.Tensor(1, num_features, 1, 1))
         self.beta = Parameter(torch.Tensor(1, num_features, 1, 1))
@@ -238,13 +244,14 @@ class ILN(nn.Module):
         out_in = (input - in_mean) / torch.sqrt(in_var + self.eps)
         ln_mean, ln_var = torch.mean(input, dim=[1, 2, 3], keepdim=True), torch.var(input, dim=[1, 2, 3], keepdim=True)
         out_ln = (input - ln_mean) / torch.sqrt(ln_var + self.eps)
-        
+
         softmax = nn.Softmax(2)
         rho = softmax(self.rho)
-        
+
         if self.using_bn:
             if self.training:
-                bn_mean, bn_var = torch.mean(input, dim=[0, 2, 3], keepdim=True), torch.var(input, dim=[0, 2, 3], keepdim=True)
+                bn_mean, bn_var = torch.mean(input, dim=[0, 2, 3], keepdim=True), torch.var(input, dim=[0, 2, 3],
+                                                                                            keepdim=True)
                 if self.using_moving_average:
                     self.running_mean.mul_(self.momentum)
                     self.running_mean.add_((1 - self.momentum) * bn_mean.data)
@@ -257,129 +264,284 @@ class ILN(nn.Module):
                 bn_mean = torch.autograd.Variable(self.running_mean)
                 bn_var = torch.autograd.Variable(self.running_var)
             out_bn = (input - bn_mean) / torch.sqrt(bn_var + self.eps)
-            rho_0 = rho[:,:,0]
-            rho_1 = rho[:,:,1]
-            rho_2 = rho[:,:,2]
+            rho_0 = rho[:, :, 0]
+            rho_1 = rho[:, :, 1]
+            rho_2 = rho[:, :, 2]
 
-            rho_0 = rho_0.view(1, self.num_features, 1,1)
-            rho_1 = rho_1.view(1, self.num_features, 1,1)
-            rho_2 = rho_2.view(1, self.num_features, 1,1)
+            rho_0 = rho_0.view(1, self.num_features, 1, 1)
+            rho_1 = rho_1.view(1, self.num_features, 1, 1)
+            rho_2 = rho_2.view(1, self.num_features, 1, 1)
             rho_0 = rho_0.expand(input.shape[0], -1, -1, -1)
             rho_1 = rho_1.expand(input.shape[0], -1, -1, -1)
             rho_2 = rho_2.expand(input.shape[0], -1, -1, -1)
             out = rho_0 * out_in + rho_1 * out_ln + rho_2 * out_bn
         else:
-            rho_0 = rho[:,:,0]
-            rho_1 = rho[:,:,1]
-            rho_0 = rho_0.view(1, self.num_features, 1,1)
-            rho_1 = rho_1.view(1, self.num_features, 1,1)
+            rho_0 = rho[:, :, 0]
+            rho_1 = rho[:, :, 1]
+            rho_0 = rho_0.view(1, self.num_features, 1, 1)
+            rho_1 = rho_1.view(1, self.num_features, 1, 1)
             rho_0 = rho_0.expand(input.shape[0], -1, -1, -1)
             rho_1 = rho_1.expand(input.shape[0], -1, -1, -1)
             out = rho_0 * out_in + rho_1 * out_ln
-        
+
         out = out * self.gamma.expand(input.shape[0], -1, -1, -1) + self.beta.expand(input.shape[0], -1, -1, -1)
         return out
 
 
+# class Discriminator(nn.Module):
+#     def __init__(self, input_nc, ndf=64, n_layers=7):
+#         super(Discriminator, self).__init__()
+#         model = [nn.ReflectionPad2d(1),
+#                  nn.utils.spectral_norm(
+#                      nn.Conv2d(input_nc, ndf, kernel_size=4, stride=2, padding=0, bias=True)),
+#                  nn.LeakyReLU(0.2, True)]  # 1+3*2^0 =4
+#
+#         for i in range(1, 2):  # 1+3*2^0 + 3*2^1 =10
+#             mult = 2 ** (i - 1)
+#             model += [nn.ReflectionPad2d(1),
+#                       nn.utils.spectral_norm(
+#                           nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=2, padding=0, bias=True)),
+#                       nn.LeakyReLU(0.2, True)]
+#
+#             # Class Activation Map
+#         mult = 2 ** (1)
+#         self.fc = nn.utils.spectral_norm(nn.Linear(ndf * mult * 2, 1, bias=False))
+#         self.conv1x1 = nn.Conv2d(ndf * mult * 2, ndf * mult, kernel_size=1, stride=1, bias=True)
+#         self.leaky_relu = nn.LeakyReLU(0.2, True)
+#         self.lamda = nn.Parameter(torch.zeros(1))
+#
+#         Dis0_0 = []
+#         for i in range(2, n_layers - 4):  # 1+3*2^0 + 3*2^1 + 3*2^2 =22
+#             mult = 2 ** (i - 1)
+#             Dis0_0 += [nn.ReflectionPad2d(1),
+#                        nn.utils.spectral_norm(
+#                            nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=2, padding=0, bias=True)),
+#                        nn.LeakyReLU(0.2, True)]
+#
+#         mult = 2 ** (n_layers - 4 - 1)
+#         Dis0_1 = [nn.ReflectionPad2d(1),  # 1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 = 46
+#                   nn.utils.spectral_norm(
+#                       nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=1, padding=0, bias=True)),
+#                   nn.LeakyReLU(0.2, True)]
+#         mult = 2 ** (n_layers - 4)
+#         self.conv0 = nn.utils.spectral_norm(  # 1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 + 3*2^3= 70
+#             nn.Conv2d(ndf * mult, 1, kernel_size=4, stride=1, padding=0, bias=False))
+#
+#         Dis1_0 = []
+#         for i in range(n_layers - 4,
+#                        n_layers - 2):  # 1+3*2^0 + 3*2^1 + 3*2^2 + 3*2^3=46, 1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 +3*2^4 = 94
+#             mult = 2 ** (i - 1)
+#             Dis1_0 += [nn.ReflectionPad2d(1),
+#                        nn.utils.spectral_norm(
+#                            nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=2, padding=0, bias=True)),
+#                        nn.LeakyReLU(0.2, True)]
+#
+#         mult = 2 ** (n_layers - 2 - 1)
+#         Dis1_1 = [nn.ReflectionPad2d(1),  # 1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 +3*2^4 + 3*2^5= 94 + 96 = 190
+#                   nn.utils.spectral_norm(
+#                       nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=1, padding=0, bias=True)),
+#                   nn.LeakyReLU(0.2, True)]
+#         mult = 2 ** (n_layers - 2)
+#         self.conv1 = nn.utils.spectral_norm(  # 1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 +3*2^4 + 3*2^5 + 3*2^5 = 286
+#             nn.Conv2d(ndf * mult, 1, kernel_size=4, stride=1, padding=0, bias=False))
+#
+#         # self.attn = Self_Attn( ndf * mult)
+#         self.pad = nn.ReflectionPad2d(1)
+#
+#         self.model = nn.Sequential(*model)
+#         self.Dis0_0 = nn.Sequential(*Dis0_0)
+#         self.Dis0_1 = nn.Sequential(*Dis0_1)
+#         self.Dis1_0 = nn.Sequential(*Dis1_0)
+#         self.Dis1_1 = nn.Sequential(*Dis1_1)
+#
+#     def forward(self, input):
+#         x = self.model(input)
+#
+#         x_0 = x
+#
+#         gap = torch.nn.functional.adaptive_avg_pool2d(x, 1)
+#         gmp = torch.nn.functional.adaptive_max_pool2d(x, 1)
+#         x = torch.cat([x, x], 1)
+#         cam_logit = torch.cat([gap, gmp], 1)
+#         cam_logit = self.fc(cam_logit.view(cam_logit.shape[0], -1))
+#         weight = list(self.fc.parameters())[0]
+#         x = x * weight.unsqueeze(2).unsqueeze(3)
+#         x = self.conv1x1(x)
+#
+#         x = self.lamda * x + x_0
+#         # print("lamda:",self.lamda)
+#
+#         x = self.leaky_relu(x)
+#
+#         heatmap = torch.sum(x, dim=1, keepdim=True)
+#
+#         z = x
+#
+#         x0 = self.Dis0_0(x)
+#         x1 = self.Dis1_0(x0)
+#         x0 = self.Dis0_1(x0)
+#         x1 = self.Dis1_1(x1)
+#         x0 = self.pad(x0)
+#         x1 = self.pad(x1)
+#         out0 = self.conv0(x0)
+#         out1 = self.conv1(x1)
+#
+#         return out0, out1, cam_logit, heatmap, z
+
+
+class Encoder(nn.Module):
+    def __init__(self, input_nc, num_down_sampling=2, num_filters=64, style_dims=64):
+        super(Encoder, self).__init__()
+
+        # (h,w,3) -> (h,w,64)
+        model = [
+            nn.ReflectionPad2d(3),
+            nn.Conv2d(input_nc, num_filters, kernel_size=7, stride=1, padding=0, bias=True),
+            nn.ReLU(True),
+        ]
+
+        # (h,w,64) -> (h/4,w/4,256)
+        for i in range(2):
+            model += [
+                nn.ReflectionPad2d(1),
+                nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=2, padding=0, bias=True),
+                nn.ReLU(True),
+            ]
+            num_filters *= 2
+
+        assert num_filters == 256
+
+        # style
+        model_style = model.copy()
+        for i in range(2):
+            model_style += [
+                nn.ReflectionPad2d(1),
+                nn.Conv2d(num_filters, num_filters, kernel_size=4, stride=2, padding=0, bias=True),
+                nn.ReLU(True),
+            ]
+        model_style += [
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(num_filters, style_dims, kernel_size=1, stride=1, padding=0)
+        ]
+
+        # content
+        model_content = model
+        for _ in range(2):
+            model_content += [
+                ResnetBlock(num_filters, True)
+            ]
+
+        self.model_content = nn.Sequential(*model_content)
+        self.model_style = nn.Sequential(*model_style)
+
+    def forward(self, x):
+        content = self.model_content(x)
+        style = self.model_content(x)
+        print(content.size())
+        print(content.mean(3).size())
+        print(content.mean(3).mean(2).size())
+        return content, style
+
+
 class Discriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=7):
+    def __init__(self, input_nc=3, num_filters=64, style_dims=256):
         super(Discriminator, self).__init__()
-        model = [nn.ReflectionPad2d(1),
-                 nn.utils.spectral_norm(
-                 nn.Conv2d(input_nc, ndf, kernel_size=4, stride=2, padding=0, bias=True)),
-                 nn.LeakyReLU(0.2, True)]  #1+3*2^0 =4
 
-        for i in range(1, 2):   #1+3*2^0 + 3*2^1 =10        
-            mult = 2 ** (i - 1)
-            model += [nn.ReflectionPad2d(1),
-                      nn.utils.spectral_norm(
-                      nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=2, padding=0, bias=True)),
-                      nn.LeakyReLU(0.2, True)]    
+        # (h,w,3) -> (h,w,64)
+        model = [
+            nn.ReflectionPad2d(3),
+            nn.utils.spectral_norm(
+                nn.Conv2d(input_nc, num_filters, kernel_size=7, stride=1, padding=0, bias=True)),
+            nn.LeakyReLU(0.2, True),
+        ]
 
-        # Class Activation Map
-        mult = 2 ** (1)
-        self.fc = nn.utils.spectral_norm(nn.Linear(ndf * mult * 2, 1, bias=False))
-        self.conv1x1 = nn.Conv2d(ndf * mult * 2, ndf * mult, kernel_size=1, stride=1, bias=True)
-        self.leaky_relu = nn.LeakyReLU(0.2, True)
-        self.lamda = nn.Parameter(torch.zeros(1))
-
-
-        Dis0_0 = []
-        for i in range(2, n_layers - 4):   # 1+3*2^0 + 3*2^1 + 3*2^2 =22
-            mult = 2 ** (i - 1)
-            Dis0_0 += [nn.ReflectionPad2d(1),
-                      nn.utils.spectral_norm(
-                      nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=2, padding=0, bias=True)),
-                      nn.LeakyReLU(0.2, True)]
-
-        mult = 2 ** (n_layers - 4 - 1)
-        Dis0_1 = [nn.ReflectionPad2d(1),     #1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 = 46
+        # (h, w, 64) -> (h/4, w/4, 256)
+        for i in range(2):
+            model += [
+                nn.ReflectionPad2d(1),
                 nn.utils.spectral_norm(
-                nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=1, padding=0, bias=True)),
-                nn.LeakyReLU(0.2, True)]
-        mult = 2 ** (n_layers - 4)
-        self.conv0 = nn.utils.spectral_norm(   #1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 + 3*2^3= 70
-            nn.Conv2d(ndf * mult, 1, kernel_size=4, stride=1, padding=0, bias=False))
+                    nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=2, padding=0, bias=True)),
+                nn.LeakyReLU(0.2, True),
+            ]
+            num_filters *= 2
 
-        
-        Dis1_0 = []
-        for i in range(n_layers - 4, n_layers - 2):   # 1+3*2^0 + 3*2^1 + 3*2^2 + 3*2^3=46, 1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 +3*2^4 = 94
-            mult = 2 ** (i - 1)
-            Dis1_0 += [nn.ReflectionPad2d(1),
-                      nn.utils.spectral_norm(
-                      nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=2, padding=0, bias=True)),
-                      nn.LeakyReLU(0.2, True)]
+        self.fc_x4 = nn.utils.spectral_norm(nn.Linear(num_filters * 2, 1, bias=False))
+        self.conv1x1_x4 = nn.Conv2d(num_filters * 2, num_filters, kernel_size=1, stride=1, bias=True)
+        self.lambda_x4 = nn.Parameter(torch.zeros(1))
 
-        mult = 2 ** (n_layers - 2 - 1)
-        Dis1_1 = [nn.ReflectionPad2d(1),  #1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 +3*2^4 + 3*2^5= 94 + 96 = 190
+        # (h/4, w/4, 256) -> (h/8, w/8, 256)
+        down_sample_x8 = [
+            nn.ReflectionPad2d(1),
+            nn.utils.spectral_norm(
+                nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=2, padding=0, bias=True)),
+            nn.LeakyReLU(0.2, True),
+        ]
+        # (h/8, w/8, 256) -> (h/8, w/8, 1)
+        classifier_x8 = [
+            nn.ReflectionPad2d(1),
+            nn.utils.spectral_norm(
+                nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=1, padding=0, bias=True)),
+            nn.LeakyReLU(0.2, True),
+            nn.ReflectionPad2d(1),
+            nn.utils.spectral_norm(
+                nn.Conv2d(num_filters * 2, 1, kernel_size=4, stride=1, padding=0, bias=False)),
+        ]
+
+        # (h/8, w/8, 256) -> (h/32, w/32, 1024)
+        down_sample_x32 = []
+        for i in range(2):
+            down_sample_x32 += [
+                nn.ReflectionPad2d(1),
                 nn.utils.spectral_norm(
-                nn.Conv2d(ndf * mult, ndf * mult * 2, kernel_size=4, stride=1, padding=0, bias=True)),
-                nn.LeakyReLU(0.2, True)]
-        mult = 2 ** (n_layers - 2)
-        self.conv1 = nn.utils.spectral_norm(   #1+3*2^0 + 3*2^1 + 3*2^2 +3*2^3 +3*2^4 + 3*2^5 + 3*2^5 = 286
-            nn.Conv2d(ndf * mult, 1, kernel_size=4, stride=1, padding=0, bias=False))
+                    nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=2, padding=0, bias=True)),
+                nn.LeakyReLU(0.2, True),
+            ]
+            num_filters *= 2
 
+        # (h/32, w/32, 1024) -> (h/32, w/32, 1)
+        classifier_x32 = [
+            nn.ReflectionPad2d(1),
+            nn.utils.spectral_norm(
+                nn.Conv2d(num_filters, num_filters * 2, kernel_size=4, stride=1, padding=0, bias=True)),
+            nn.LeakyReLU(0.2, True),
+            nn.ReflectionPad2d(1),
+            nn.utils.spectral_norm(
+                nn.Conv2d(num_filters * 2, 1, kernel_size=4, stride=1, padding=0, bias=False)),
+        ]
 
-        # self.attn = Self_Attn( ndf * mult)
-        self.pad = nn.ReflectionPad2d(1)
-
+        self.down_sample_x32 = nn.Sequential(*down_sample_x32)
+        self.down_sample_x8 = nn.Sequential(*down_sample_x8)
+        self.classifier_x32 = nn.Sequential(*classifier_x32)
+        self.classifier_x8 = nn.Sequential(*classifier_x8)
         self.model = nn.Sequential(*model)
-        self.Dis0_0 = nn.Sequential(*Dis0_0)
-        self.Dis0_1 = nn.Sequential(*Dis0_1)
-        self.Dis1_0 = nn.Sequential(*Dis1_0)
-        self.Dis1_1 = nn.Sequential(*Dis1_1)
 
-    def forward(self, input):
-        x = self.model(input)
+    def forward(self, x):
+        x = self.model(x)
 
-        x_0 = x
+        x0 = x
 
-        gap = torch.nn.functional.adaptive_avg_pool2d(x, 1)
-        gmp = torch.nn.functional.adaptive_max_pool2d(x, 1)
-        x = torch.cat([x, x], 1)
-        cam_logit = torch.cat([gap, gmp], 1)
-        cam_logit = self.fc(cam_logit.view(cam_logit.shape[0], -1))
+        gap = nn.functional.adaptive_avg_pool2d(x, 1)
+        gmp = nn.functional.adaptive_max_pool2d(x, 1)
+        x = torch.cat([x, x], dim=1)
+        cam_logit = torch.cat([gap, gmp], dim=1)
+        cam_logit = self.fc_x4(cam_logit.view(cam_logit.shape[0], -1))
         weight = list(self.fc.parameters())[0]
         x = x * weight.unsqueeze(2).unsqueeze(3)
-        x = self.conv1x1(x)
+        x = self.conv1x1_x4(x)
 
-        x = self.lamda*x + x_0
-        # print("lamda:",self.lamda)
+        x = self.lambda_x4 * x + x0
 
-        x = self.leaky_relu(x)
-        
-        heatmap = torch.sum(x, dim=1, keepdim=True)
+        latent_x4 = x
 
-        z = x
+        x8 = self.down_sample_x8(x)
+        x32 = self.down_sample_x32(x8)
+        x8 = self.classifier_x8(x8)
+        x32 = self.classifier_x32(x32)
 
-        x0 = self.Dis0_0(x)
-        x1 = self.Dis1_0(x0)
-        x0 = self.Dis0_1(x0)
-        x1 = self.Dis1_1(x1)
-        x0 = self.pad(x0)
-        x1 = self.pad(x1)
-        out0 = self.conv0(x0)
-        out1 = self.conv1(x1)
-        
-        return out0, out1, cam_logit, heatmap, z
+        return x32, x8, cam_logit, latent_x4
 
+
+if __name__ == '__main__':
+    x = torch.randn(8, 3, 256, 256)
+    gmp = nn.functional.adaptive_avg_pool2d(x, 1)
+    print(gmp.size())
